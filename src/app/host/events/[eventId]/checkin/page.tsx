@@ -3,10 +3,14 @@ import MobileContainer from "@/components/layout/MobileContainer";
 import AppBar from "@/components/layout/AppBar";
 import CheckinClient from "./CheckinClient";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
 }
+
+type TicketRow = Prisma.TicketGetPayload<Record<string, never>>;
+type PurchaseWithTicket = Prisma.PurchaseGetPayload<{ include: { ticket: true } }>;
 
 export default async function CheckinPage({ params }: PageProps) {
   const { eventId } = await params;
@@ -26,10 +30,13 @@ export default async function CheckinPage({ params }: PageProps) {
 
   if (!event) return notFound();
 
-  const totalQty = event.tickets.reduce((sum, t) => sum + t.totalQty, 0);
+  const totalQty = (event.tickets as TicketRow[]).reduce(
+    (sum: number, t: TicketRow) => sum + t.totalQty,
+    0
+  );
   const paidCount = event.purchases.length;
 
-  const buyers = event.purchases.map((p) => ({
+  const buyers = (event.purchases as PurchaseWithTicket[]).map((p: PurchaseWithTicket) => ({
     id: p.id,
     ticketNumber: p.ticketNumber,
     buyerName: p.buyerName,

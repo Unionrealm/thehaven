@@ -3,10 +3,13 @@ import MobileContainer from "@/components/layout/MobileContainer";
 import AppBar from "@/components/layout/AppBar";
 import EventDetailClient from "./EventDetailClient";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
 }
+
+type QuestionRow = Prisma.QuestionGetPayload<Record<string, never>>;
 
 export default async function EventDetailPage({ params }: PageProps) {
   const { eventId } = await params;
@@ -37,7 +40,7 @@ export default async function EventDetailPage({ params }: PageProps) {
     posterUrl: event.posterUrl ?? undefined,
     organizer: { name: "주최자" },
     tickets: event.tickets,
-    extraQuestions: event.extraQuestions.map((q) => ({
+    extraQuestions: (event.extraQuestions as QuestionRow[]).map((q: QuestionRow) => ({
       id: q.id,
       label: q.label,
       options: Array.isArray(q.options) ? (q.options as string[]) : undefined,

@@ -4,10 +4,14 @@ import MobileContainer from "@/components/layout/MobileContainer";
 import AppBar from "@/components/layout/AppBar";
 import { prisma } from "@/lib/prisma";
 import DashboardClient from "./DashboardClient";
+import type { Prisma } from "@prisma/client";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
 }
+
+type TicketRow = Prisma.TicketGetPayload<Record<string, never>>;
+type PurchaseWithTicket = Prisma.PurchaseGetPayload<{ include: { ticket: true } }>;
 
 export default async function HostDashboardPage({ params }: PageProps) {
   const { eventId } = await params;
@@ -28,10 +32,13 @@ export default async function HostDashboardPage({ params }: PageProps) {
 
   if (!event) return notFound();
 
-  const totalSold = event.tickets.reduce((sum, t) => sum + t.soldQty, 0);
-  const totalQty = event.tickets.reduce((sum, t) => sum + t.totalQty, 0);
-  const totalRevenue = event.purchases.reduce((sum, p) => sum + p.paidAmount, 0);
-  const checkedInCount = event.purchases.filter((p) => p.checkedIn).length;
+  const tickets = event.tickets as TicketRow[];
+  const purchases = event.purchases as PurchaseWithTicket[];
+
+  const totalSold = tickets.reduce((sum: number, t: TicketRow) => sum + t.soldQty, 0);
+  const totalQty = tickets.reduce((sum: number, t: TicketRow) => sum + t.totalQty, 0);
+  const totalRevenue = purchases.reduce((sum: number, p: PurchaseWithTicket) => sum + p.paidAmount, 0);
+  const checkedInCount = purchases.filter((p: PurchaseWithTicket) => p.checkedIn).length;
 
   const serialized = {
     id: event.id,
@@ -45,7 +52,7 @@ export default async function HostDashboardPage({ params }: PageProps) {
     totalQty,
     totalRevenue,
     checkedInCount,
-    recentPurchases: event.purchases.map((p) => ({
+    recentPurchases: purchases.map((p: PurchaseWithTicket) => ({
       id: p.id,
       buyerName: p.buyerName,
       ticketName: p.ticket.name,
