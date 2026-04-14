@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Event {
+  id              String     @id @default(cuid())
+  slug            String     @unique
+  title           String
+  category        String
+  date            DateTime
+  endTime         String?
+  location        String
+  detailedAddress String?
+  description     String
+  seatInfo        String?
+  posterUrl       String?
+  hostId          String
+  tickets         Ticket[]
+  purchases       Purchase[]
+  extraQuestions  Question[]
+  createdAt       DateTime   @default(now())
+}
+
+model Ticket {
+  id        String     @id @default(cuid())
+  eventId   String
+  event     Event      @relation(fields: [eventId], references: [id])
+  name      String
+  price     Int
+  totalQty  Int
+  soldQty   Int        @default(0)
+  purchases Purchase[]
+}
+
+model Purchase {
+  id           String    @id @default(cuid())
+  ticketNumber String    @unique
+  eventId      String
+  ticketId     String
+  event        Event     @relation(fields: [eventId], references: [id])
+  ticket       Ticket    @relation(fields: [ticketId], references: [id])
+  buyerName    String
+  buyerPhone   String
+  paidAmount   Int
+  paymentId    String    @unique
+  payMethod    String    @default("KAKAO_PAY")
+  checkedIn    Boolean   @default(false)
+  checkedInAt  DateTime?
+  answers      Json?
+  createdAt    DateTime  @default(now())
+}
+
+model Question {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id])
+  label   String
+  options Json?
+}
