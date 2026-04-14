@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function generateTicketNumber(): string {
   const num = Math.floor(1000 + Math.random() * 9000);
   return `HAVEN-${num}`;
