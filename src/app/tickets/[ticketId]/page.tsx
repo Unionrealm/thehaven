@@ -11,18 +11,15 @@ interface PageProps {
 export default async function TicketPage({ params }: PageProps) {
   const { ticketId } = await params;
 
-  let purchase;
-  try {
-    purchase = await prisma.purchase.findUnique({
+  const purchase = await prisma.purchase
+    .findUnique({
       where: { id: ticketId },
       include: {
         event: true,
         ticket: true,
       },
-    });
-  } catch {
-    return notFound();
-  }
+    })
+    .catch(() => null);
 
   if (!purchase) return notFound();
 

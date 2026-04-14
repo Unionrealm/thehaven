@@ -8,26 +8,20 @@ interface PageProps {
   params: Promise<{ eventId: string }>;
 }
 
-async function getEvent(eventId: string) {
-  try {
-    const event = await prisma.event.findUnique({
+export default async function EventDetailPage({ params }: PageProps) {
+  const { eventId } = await params;
+
+  const event = await prisma.event
+    .findUnique({
       where: { id: eventId },
       include: {
         tickets: true,
         extraQuestions: true,
       },
-    });
-    return event;
-  } catch {
-    return null;
-  }
-}
+    })
+    .catch(() => null);
 
-export default async function EventDetailPage({ params }: PageProps) {
-  const { eventId } = await params;
-  const event = await getEvent(eventId);
-
-  if (!event) notFound();
+  if (!event) return notFound();
 
   const serializedEvent = {
     id: event.id,
@@ -43,7 +37,7 @@ export default async function EventDetailPage({ params }: PageProps) {
     posterUrl: event.posterUrl ?? undefined,
     organizer: { name: "주최자" },
     tickets: event.tickets,
-    extraQuestions: event.extraQuestions.map((q: { id: string; eventId: string; label: string; options: unknown }) => ({
+    extraQuestions: event.extraQuestions.map((q) => ({
       id: q.id,
       label: q.label,
       options: Array.isArray(q.options) ? (q.options as string[]) : undefined,

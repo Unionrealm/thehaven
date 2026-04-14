@@ -11,9 +11,8 @@ interface PageProps {
 export default async function CheckinPage({ params }: PageProps) {
   const { eventId } = await params;
 
-  let event;
-  try {
-    event = await prisma.event.findUnique({
+  const event = await prisma.event
+    .findUnique({
       where: { id: eventId },
       include: {
         tickets: true,
@@ -22,14 +21,12 @@ export default async function CheckinPage({ params }: PageProps) {
           orderBy: { createdAt: "desc" },
         },
       },
-    });
-  } catch {
-    return notFound();
-  }
+    })
+    .catch(() => null);
 
   if (!event) return notFound();
 
-  const totalQty = event.tickets.reduce((sum: number, t: { totalQty: number }) => sum + t.totalQty, 0);
+  const totalQty = event.tickets.reduce((sum, t) => sum + t.totalQty, 0);
   const paidCount = event.purchases.length;
 
   const buyers = event.purchases.map((p) => ({

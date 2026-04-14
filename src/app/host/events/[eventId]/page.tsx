@@ -12,9 +12,8 @@ interface PageProps {
 export default async function HostDashboardPage({ params }: PageProps) {
   const { eventId } = await params;
 
-  let event;
-  try {
-    event = await prisma.event.findUnique({
+  const event = await prisma.event
+    .findUnique({
       where: { id: eventId },
       include: {
         tickets: true,
@@ -24,17 +23,15 @@ export default async function HostDashboardPage({ params }: PageProps) {
           include: { ticket: true },
         },
       },
-    });
-  } catch {
-    return notFound();
-  }
+    })
+    .catch(() => null);
 
   if (!event) return notFound();
 
-  const totalSold = event.tickets.reduce((sum: number, t: { soldQty: number }) => sum + t.soldQty, 0);
-  const totalQty = event.tickets.reduce((sum: number, t: { totalQty: number }) => sum + t.totalQty, 0);
-  const totalRevenue = event.purchases.reduce((sum: number, p: { paidAmount: number }) => sum + p.paidAmount, 0);
-  const checkedInCount = event.purchases.filter((p: { checkedIn: boolean }) => p.checkedIn).length;
+  const totalSold = event.tickets.reduce((sum, t) => sum + t.soldQty, 0);
+  const totalQty = event.tickets.reduce((sum, t) => sum + t.totalQty, 0);
+  const totalRevenue = event.purchases.reduce((sum, p) => sum + p.paidAmount, 0);
+  const checkedInCount = event.purchases.filter((p) => p.checkedIn).length;
 
   const serialized = {
     id: event.id,
