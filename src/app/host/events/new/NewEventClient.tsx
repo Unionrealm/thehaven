@@ -38,6 +38,7 @@ export default function NewEventClient() {
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Calculate progress
   const progress = [
@@ -76,8 +77,9 @@ export default function NewEventClient() {
   }
 
   async function handleSubmit() {
+    setFormError(null);
     if (!eventName || !category || !date || !time || !location || !description) {
-      alert("필수 항목을 모두 입력해주세요.");
+      setFormError("필수 항목을 모두 입력해주세요.");
       return;
     }
     setLoading(true);
@@ -97,10 +99,24 @@ export default function NewEventClient() {
 
     try {
       const res = await fetch("/api/events", { method: "POST", body: formData });
-      const { eventId } = await res.json();
-      router.push(`/host/events/${eventId}`);
-    } catch {
-      alert("이벤트 생성 중 오류가 발생했습니다.");
+      const data = (await res.json().catch(() => ({}))) as {
+        eventId?: string;
+        error?: string;
+      };
+
+      if (!res.ok || !data.eventId) {
+        setFormError(
+          data.error ?? `이벤트 생성에 실패했어요. (HTTP ${res.status})`
+        );
+        setLoading(false);
+        return;
+      }
+
+      router.push(`/host/events/${data.eventId}`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했어요.";
+      setFormError(`네트워크 오류로 이벤트를 만들 수 없어요: ${message}`);
       setLoading(false);
     }
   }
@@ -388,9 +404,17 @@ export default function NewEventClient() {
 
       {/* Bottom CTA */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[375px] bg-white border-t border-[#f0f0f0] px-5 py-4">
-        <p className="text-center text-[13px] text-[#aaaaaa] mb-3">
-          링크를 공유하면 바로 판매 시작!
-        </p>
+        {formError ? (
+          <div className="mb-3 px-3 py-2 bg-[#fff1f1] border border-[#ffd9d9] rounded-[10px]">
+            <p className="text-[12px] text-[#d23f3f] leading-[18px] whitespace-pre-wrap">
+              {formError}
+            </p>
+          </div>
+        ) : (
+          <p className="text-center text-[13px] text-[#aaaaaa] mb-3">
+            링크를 공유하면 바로 판매 시작!
+          </p>
+        )}
         <button
           onClick={handleSubmit}
           disabled={loading}
