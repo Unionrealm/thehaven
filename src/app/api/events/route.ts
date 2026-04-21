@@ -114,9 +114,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: isDbConnectionError
-          ? "데이터베이스가 연결되지 않았어요. Vercel 환경변수에 DATABASE_URL을 설정해주세요."
-          : `이벤트 생성 실패: ${message}`,
+        error: `이벤트 생성 실패: ${message}`,
       },
       { status: 500 }
     );
