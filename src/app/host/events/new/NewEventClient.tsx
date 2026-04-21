@@ -312,31 +312,33 @@ export default function NewEventClient() {
                 className="w-full h-11 bg-white rounded-[10px] px-4 text-[14px] placeholder:text-[#cccccc] focus:outline-none"
               />
             </div>
-            <div className="flex gap-2">
-              <div className="flex-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
                 <label className="block text-[13px] font-medium text-[#555] mb-1.5">가격</label>
-                <div className="flex items-center bg-white rounded-[10px] h-10 px-4">
+                <div className="flex items-center bg-white rounded-[10px] h-10 px-3">
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={ticket.price}
                     onChange={(e) => updateTicket(i, "price", e.target.value)}
                     placeholder="0"
-                    className="flex-1 text-[14px] placeholder:text-[#cccccc] focus:outline-none"
+                    className="w-full min-w-0 text-[14px] placeholder:text-[#cccccc] focus:outline-none"
                   />
-                  <span className="text-[14px] text-[#aaaaaa]">원</span>
+                  <span className="text-[14px] text-[#aaaaaa] ml-1 shrink-0">원</span>
                 </div>
               </div>
-              <div className="flex-1">
+              <div>
                 <label className="block text-[13px] font-medium text-[#555] mb-1.5">수량</label>
-                <div className="flex items-center bg-white rounded-[10px] h-10 px-4">
+                <div className="flex items-center bg-white rounded-[10px] h-10 px-3">
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={ticket.qty}
                     onChange={(e) => updateTicket(i, "qty", e.target.value)}
                     placeholder="0"
-                    className="flex-1 text-[14px] placeholder:text-[#cccccc] focus:outline-none"
+                    className="w-full min-w-0 text-[14px] placeholder:text-[#cccccc] focus:outline-none"
                   />
-                  <span className="text-[14px] text-[#aaaaaa]">매</span>
+                  <span className="text-[14px] text-[#aaaaaa] ml-1 shrink-0">매</span>
                 </div>
               </div>
             </div>
