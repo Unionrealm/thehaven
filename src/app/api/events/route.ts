@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,8 +30,6 @@ export async function POST(request: NextRequest) {
     const ticketsJson = (formData.get("tickets") as string | null) ?? "[]";
     const questionsJson = (formData.get("questions") as string | null) ?? "[]";
 
-    // Required-field validation up front so failures become readable errors,
-    // not opaque Prisma exceptions.
     const missing: string[] = [];
     if (!eventName) missing.push("이벤트 이름");
     if (!category) missing.push("카테고리");
@@ -73,49 +71,64 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Upload poster to Supabase Storage
-    // const poster = formData.get("poster") as File | null;
+    const eventId = crypto.randomUUID();
+    const slug = generateSlug(eventName);
 
-    const event = await prisma.event.create({
-      data: {
-        slug: generateSlug(eventName),
-        title: eventName,
-        category,
-        date,
-        endTime: endTime || null,
-        location,
-        description,
-        seatInfo: seatInfo || null,
-        hostId: "temp-host-id", // TODO: get from session
-        tickets: {
-          create: validTickets.map((t) => ({
-            name: t.name,
-            price: parseInt(t.price, 10),
-            totalQty: parseInt(t.qty, 10),
-          })),
-        },
-        extraQuestions: {
-          create: questions.map((q) => ({ label: q })),
-        },
-      },
+    const { error: eventError } = await supabase.from("Event").insert({
+      id: eventId,
+      slug,
+      title: eventName,
+      category,
+      date: date.toISOString(),
+      endTime: endTime || null,
+      location,
+      description,
+      seatInfo: seatInfo || null,
+      hostId: "temp-host-id",
     });
 
-    return NextResponse.json({ eventId: event.id });
+    if (eventError) {
+      return NextResponse.json(
+        { error: `이벤트 생성 실패: ${eventError.message}` },
+        { status: 500 }
+      );
+    }
+
+    const ticketRows = validTickets.map((t) => ({
+      id: crypto.randomUUID(),
+      eventId,
+      name: t.name,
+      price: parseInt(t.price, 10),
+      totalQty: parseInt(t.qty, 10),
+      soldQty: 0,
+    }));
+
+    const { error: ticketError } = await supabase
+      .from("Ticket")
+      .insert(ticketRows);
+
+    if (ticketError) {
+      return NextResponse.json(
+        { error: `티켓 생성 실패: ${ticketError.message}` },
+        { status: 500 }
+      );
+    }
+
+    if (questions.length > 0) {
+      const questionRows = questions.map((q) => ({
+        id: crypto.randomUUID(),
+        eventId,
+        label: q,
+      }));
+      await supabase.from("Question").insert(questionRows);
+    }
+
+    return NextResponse.json({ eventId });
   } catch (err) {
-    // Surface DB/connection errors with a user-friendly hint instead of a
-    // generic 500. The most common cause is `DATABASE_URL` not being set on
-    // the deployment environment.
     const message =
       err instanceof Error ? err.message : "알 수 없는 오류가 발생했어요.";
-    const isDbConnectionError =
-      /DATABASE_URL|connection|ECONNREFUSED|ENOTFOUND|placeholder/i.test(
-        message
-      );
-
     return NextResponse.json(
-      {
-        error: `이벤트 생성 실패: ${message}`,
-      },
+      { error: `이벤트 생성 실패: ${message}` },
       { status: 500 }
     );
   }

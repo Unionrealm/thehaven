@@ -1,6 +1,6 @@
 import Link from "next/link";
 import MobileContainer from "@/components/layout/MobileContainer";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { MOCK_EVENTS } from "@/lib/mockEvents";
 import HomeFeedClient from "./HomeFeedClient";
 import type { Event } from "@/lib/types";
@@ -9,30 +9,33 @@ export const dynamic = "force-dynamic";
 
 async function getDbEvents(): Promise<Event[]> {
   try {
-    const events = await prisma.event.findMany({
-      include: { tickets: true },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
-    return events.map((e) => ({
-      id: e.id,
-      slug: e.slug,
-      title: e.title,
-      category: e.category,
-      date: e.date.toISOString(),
-      endTime: e.endTime ?? undefined,
-      location: e.location,
-      detailedAddress: e.detailedAddress ?? undefined,
-      description: e.description,
-      seatInfo: e.seatInfo ?? undefined,
-      posterUrl: e.posterUrl ?? undefined,
+    const { data: events, error } = await supabase
+      .from("Event")
+      .select("*, Ticket(*)")
+      .order("createdAt", { ascending: false })
+      .limit(20);
+
+    if (error || !events) return [];
+
+    return events.map((e: Record<string, unknown>) => ({
+      id: e.id as string,
+      slug: e.slug as string,
+      title: e.title as string,
+      category: e.category as string,
+      date: e.date as string,
+      endTime: (e.endTime as string) ?? undefined,
+      location: e.location as string,
+      detailedAddress: (e.detailedAddress as string) ?? undefined,
+      description: e.description as string,
+      seatInfo: (e.seatInfo as string) ?? undefined,
+      posterUrl: (e.posterUrl as string) ?? undefined,
       organizer: { name: "주최자" },
-      tickets: e.tickets.map((t) => ({
-        id: t.id,
-        name: t.name,
-        price: t.price,
-        totalQty: t.totalQty,
-        soldQty: t.soldQty,
+      tickets: ((e.Ticket ?? []) as Record<string, unknown>[]).map((t) => ({
+        id: t.id as string,
+        name: t.name as string,
+        price: t.price as number,
+        totalQty: t.totalQty as number,
+        soldQty: t.soldQty as number,
       })),
     }));
   } catch {

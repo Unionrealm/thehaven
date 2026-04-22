@@ -2,59 +2,60 @@ import { notFound } from "next/navigation";
 import MobileContainer from "@/components/layout/MobileContainer";
 import AppBar from "@/components/layout/AppBar";
 import EventDetailClient from "./EventDetailClient";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { getMockEvent, isMockEventId } from "@/lib/mockEvents";
-import type { Prisma } from "@prisma/client";
 import type { Event } from "@/lib/types";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
 }
 
-type QuestionRow = Prisma.QuestionGetPayload<Record<string, never>>;
-
 export default async function EventDetailPage({ params }: PageProps) {
   const { eventId } = await params;
 
-  // Mock events bypass the DB entirely so the home feed's example cards
-  // always render even without DATABASE_URL configured.
   if (isMockEventId(eventId)) {
     const mock = getMockEvent(eventId);
     if (!mock) return notFound();
     return renderEvent(mock);
   }
 
-  const event = await prisma.event
-    .findUnique({
-      where: { id: eventId },
-      include: {
-        tickets: true,
-        extraQuestions: true,
-      },
-    })
-    .catch(() => null);
+  const { data: event } = await supabase
+    .from("Event")
+    .select("*, Ticket(*), Question(*)")
+    .eq("id", eventId)
+    .single();
 
   if (!event) return notFound();
 
   const serializedEvent: Event = {
-    id: event.id,
-    slug: event.slug,
-    title: event.title,
-    category: event.category,
-    date: event.date.toISOString(),
-    endTime: event.endTime ?? undefined,
-    location: event.location,
-    detailedAddress: event.detailedAddress ?? undefined,
-    description: event.description,
-    seatInfo: event.seatInfo ?? undefined,
-    posterUrl: event.posterUrl ?? undefined,
+    id: event.id as string,
+    slug: event.slug as string,
+    title: event.title as string,
+    category: event.category as string,
+    date: event.date as string,
+    endTime: (event.endTime as string) ?? undefined,
+    location: event.location as string,
+    detailedAddress: (event.detailedAddress as string) ?? undefined,
+    description: event.description as string,
+    seatInfo: (event.seatInfo as string) ?? undefined,
+    posterUrl: (event.posterUrl as string) ?? undefined,
     organizer: { name: "주최자" },
-    tickets: event.tickets,
-    extraQuestions: (event.extraQuestions as QuestionRow[]).map((q: QuestionRow) => ({
-      id: q.id,
-      label: q.label,
-      options: Array.isArray(q.options) ? (q.options as string[]) : undefined,
+    tickets: ((event.Ticket ?? []) as Record<string, unknown>[]).map((t) => ({
+      id: t.id as string,
+      name: t.name as string,
+      price: t.price as number,
+      totalQty: t.totalQty as number,
+      soldQty: t.soldQty as number,
     })),
+    extraQuestions: ((event.Question ?? []) as Record<string, unknown>[]).map(
+      (q) => ({
+        id: q.id as string,
+        label: q.label as string,
+        options: Array.isArray(q.options)
+          ? (q.options as string[])
+          : undefined,
+      })
+    ),
   };
 
   return renderEvent(serializedEvent);
