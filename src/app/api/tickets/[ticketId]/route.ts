@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,12 +11,13 @@ interface RouteParams {
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { ticketId } = await params;
 
-  const purchase = await prisma.purchase.findUnique({
-    where: { id: ticketId },
-    select: { id: true, ticketNumber: true, checkedIn: true },
-  });
+  const { data: purchase, error } = await supabase
+    .from("Purchase")
+    .select("id, ticketNumber, checkedIn")
+    .eq("id", ticketId)
+    .single();
 
-  if (!purchase) {
+  if (error || !purchase) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

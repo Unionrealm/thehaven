@@ -2,48 +2,51 @@ import { notFound } from "next/navigation";
 import MobileContainer from "@/components/layout/MobileContainer";
 import AppBar from "@/components/layout/AppBar";
 import CheckinClient from "./CheckinClient";
-import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { supabase } from "@/lib/supabase";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
 }
 
-type TicketRow = Prisma.TicketGetPayload<Record<string, never>>;
-type PurchaseWithTicket = Prisma.PurchaseGetPayload<{ include: { ticket: true } }>;
-
 export default async function CheckinPage({ params }: PageProps) {
   const { eventId } = await params;
 
-  const event = await prisma.event
-    .findUnique({
-      where: { id: eventId },
-      include: {
-        tickets: true,
-        purchases: {
-          include: { ticket: true },
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    })
-    .catch(() => null);
+  const { data: event, error } = await supabase
+    .from("Event")
+    .select("*, Ticket(*), Purchase(*, Ticket(*))")
+    .eq("id", eventId)
+    .single();
 
-  if (!event) return notFound();
+  if (error || !event) return notFound();
 
-  const totalQty = (event.tickets as TicketRow[]).reduce(
-    (sum: number, t: TicketRow) => sum + t.totalQty,
+  const row = event as Record<string, unknown>;
+  const tickets = row.Ticket as Record<string, unknown>[];
+  const purchases = row.Purchase as Record<string, unknown>[];
+
+  // Sort purchases by createdAt descending
+  purchases.sort((a, b) => {
+    const dateA = a.createdAt as string;
+    const dateB = b.createdAt as string;
+    return dateB.localeCompare(dateA);
+  });
+
+  const totalQty = tickets.reduce(
+    (sum: number, t: Record<string, unknown>) => sum + (t.totalQty as number),
     0
   );
-  const paidCount = event.purchases.length;
+  const paidCount = purchases.length;
 
-  const buyers = (event.purchases as PurchaseWithTicket[]).map((p: PurchaseWithTicket) => ({
-    id: p.id,
-    ticketNumber: p.ticketNumber,
-    buyerName: p.buyerName,
-    ticketName: p.ticket.name,
-    createdAt: p.createdAt.toISOString(),
-    checkedIn: p.checkedIn,
-  }));
+  const buyers = purchases.map((p: Record<string, unknown>) => {
+    const ticket = p.Ticket as Record<string, unknown>;
+    return {
+      id: p.id as string,
+      ticketNumber: p.ticketNumber as string,
+      buyerName: p.buyerName as string,
+      ticketName: ticket.name as string,
+      createdAt: p.createdAt as string,
+      checkedIn: p.checkedIn as boolean,
+    };
+  });
 
   return (
     <MobileContainer>

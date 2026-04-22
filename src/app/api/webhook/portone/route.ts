@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,24 +13,32 @@ export async function POST(request: NextRequest) {
   }
 
   // Find purchase by paymentId
-  const purchase = await prisma.purchase.findUnique({
-    where: { paymentId },
-    include: { ticket: true },
-  });
+  const { data: purchase, error } = await supabase
+    .from("Purchase")
+    .select("*, Ticket(*)")
+    .eq("paymentId", paymentId)
+    .single();
 
-  if (!purchase) {
+  if (error || !purchase) {
     return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
   }
 
+  const row = purchase as Record<string, unknown>;
+
   // TODO: Verify payment amount with Portone API using PORTONE_API_SECRET
 
-  // Update ticket sold count
-  await prisma.$transaction([
-    prisma.ticket.update({
-      where: { id: purchase.ticketId },
-      data: { soldQty: { increment: 1 } },
-    }),
-  ]);
+  // Update ticket sold count: read current value then increment
+  const ticketData = row.Ticket as Record<string, unknown>;
+  const currentSoldQty = ticketData.soldQty as number;
 
-  return NextResponse.json({ ok: true, purchaseId: purchase.id });
+  const { error: updateError } = await supabase
+    .from("Ticket")
+    .update({ soldQty: currentSoldQty + 1 })
+    .eq("id", row.ticketId as string);
+
+  if (updateError) {
+    return NextResponse.json({ error: "Failed to update ticket" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, purchaseId: row.id });
 }

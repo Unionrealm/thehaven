@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import MobileContainer from "@/components/layout/MobileContainer";
 import AppBar from "@/components/layout/AppBar";
 import TicketClient from "./TicketClient";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 interface PageProps {
   params: Promise<{ ticketId: string }>;
@@ -11,47 +11,47 @@ interface PageProps {
 export default async function TicketPage({ params }: PageProps) {
   const { ticketId } = await params;
 
-  const purchase = await prisma.purchase
-    .findUnique({
-      where: { id: ticketId },
-      include: {
-        event: true,
-        ticket: true,
-      },
-    })
-    .catch(() => null);
+  const { data: purchase, error } = await supabase
+    .from("Purchase")
+    .select("*, Event(*), Ticket(*)")
+    .eq("id", ticketId)
+    .single();
 
-  if (!purchase) return notFound();
+  if (error || !purchase) return notFound();
+
+  const row = purchase as Record<string, unknown>;
+  const eventData = row.Event as Record<string, unknown>;
+  const ticketData = row.Ticket as Record<string, unknown>;
 
   const serialized = {
-    id: purchase.id,
-    ticketNumber: purchase.ticketNumber,
-    eventId: purchase.eventId,
-    ticketId: purchase.ticketId,
-    buyerName: purchase.buyerName,
-    buyerPhone: purchase.buyerPhone,
-    paidAmount: purchase.paidAmount,
-    paymentId: purchase.paymentId,
-    payMethod: purchase.payMethod,
-    checkedIn: purchase.checkedIn,
-    checkedInAt: purchase.checkedInAt?.toISOString(),
-    createdAt: purchase.createdAt.toISOString(),
+    id: row.id as string,
+    ticketNumber: row.ticketNumber as string,
+    eventId: row.eventId as string,
+    ticketId: row.ticketId as string,
+    buyerName: row.buyerName as string,
+    buyerPhone: row.buyerPhone as string,
+    paidAmount: row.paidAmount as number,
+    paymentId: row.paymentId as string,
+    payMethod: row.payMethod as string,
+    checkedIn: row.checkedIn as boolean,
+    checkedInAt: row.checkedInAt as string | undefined,
+    createdAt: row.createdAt as string,
     event: {
-      id: purchase.event.id,
-      slug: purchase.event.slug,
-      title: purchase.event.title,
-      category: purchase.event.category,
-      date: purchase.event.date.toISOString(),
-      location: purchase.event.location,
-      description: purchase.event.description,
+      id: eventData.id as string,
+      slug: eventData.slug as string,
+      title: eventData.title as string,
+      category: eventData.category as string,
+      date: eventData.date as string,
+      location: eventData.location as string,
+      description: eventData.description as string,
       tickets: [],
     },
     ticket: {
-      id: purchase.ticket.id,
-      name: purchase.ticket.name,
-      price: purchase.ticket.price,
-      totalQty: purchase.ticket.totalQty,
-      soldQty: purchase.ticket.soldQty,
+      id: ticketData.id as string,
+      name: ticketData.name as string,
+      price: ticketData.price as number,
+      totalQty: ticketData.totalQty as number,
+      soldQty: ticketData.soldQty as number,
     },
   };
 

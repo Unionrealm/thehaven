@@ -2,68 +2,59 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import MobileContainer from "@/components/layout/MobileContainer";
 import AppBar from "@/components/layout/AppBar";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import DashboardClient from "./DashboardClient";
-import type { Prisma } from "@prisma/client";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
 }
 
-type TicketRow = Prisma.TicketGetPayload<Record<string, never>>;
-type PurchaseWithTicket = Prisma.PurchaseGetPayload<{ include: { ticket: true } }>;
-
 export default async function HostDashboardPage({ params }: PageProps) {
   const { eventId } = await params;
 
-  const event = await prisma.event
-    .findUnique({
-      where: { id: eventId },
-      include: {
-        tickets: true,
-        purchases: {
-          orderBy: { createdAt: "desc" },
-          take: 3,
-          include: { ticket: true },
-        },
-      },
-    })
-    .catch(() => null);
+  const { data: event } = await supabase
+    .from("Event")
+    .select("*, Ticket(*), Purchase(*, Ticket(*))")
+    .eq("id", eventId)
+    .single();
 
   if (!event) return notFound();
 
-  const tickets = event.tickets as TicketRow[];
-  const purchases = event.purchases as PurchaseWithTicket[];
+  const tickets = (event.Ticket ?? []) as Record<string, unknown>[];
+  const purchases = (event.Purchase ?? []) as Record<string, unknown>[];
 
-  const totalSold = tickets.reduce((sum: number, t: TicketRow) => sum + t.soldQty, 0);
-  const totalQty = tickets.reduce((sum: number, t: TicketRow) => sum + t.totalQty, 0);
-  const totalRevenue = purchases.reduce((sum: number, p: PurchaseWithTicket) => sum + p.paidAmount, 0);
-  const checkedInCount = purchases.filter((p: PurchaseWithTicket) => p.checkedIn).length;
+  const totalSold = tickets.reduce((sum: number, t) => sum + (t.soldQty as number), 0);
+  const totalQty = tickets.reduce((sum: number, t) => sum + (t.totalQty as number), 0);
+  const totalRevenue = purchases.reduce((sum: number, p) => sum + (p.paidAmount as number), 0);
+  const checkedInCount = purchases.filter((p) => p.checkedIn === true).length;
 
   const serialized = {
-    id: event.id,
-    slug: event.slug,
-    title: event.title,
-    date: event.date.toISOString(),
-    location: event.location,
-    category: event.category,
-    posterUrl: event.posterUrl ?? undefined,
+    id: event.id as string,
+    slug: event.slug as string,
+    title: event.title as string,
+    date: event.date as string,
+    location: event.location as string,
+    category: event.category as string,
+    posterUrl: (event.posterUrl as string) ?? undefined,
     totalSold,
     totalQty,
     totalRevenue,
     checkedInCount,
-    recentPurchases: purchases.map((p: PurchaseWithTicket) => ({
-      id: p.id,
-      buyerName: p.buyerName,
-      ticketName: p.ticket.name,
-      checkedIn: p.checkedIn,
-    })),
+    recentPurchases: purchases.slice(0, 3).map((p) => {
+      const ticket = (p.Ticket ?? {}) as Record<string, unknown>;
+      return {
+        id: p.id as string,
+        buyerName: p.buyerName as string,
+        ticketName: ticket.name as string,
+        checkedIn: p.checkedIn as boolean,
+      };
+    }),
   };
 
   return (
     <MobileContainer>
       <AppBar
-        title={event.title}
+        title={event.title as string}
         showBack
         rightAction={
           <Link href={`/host/events/${eventId}/edit`} className="text-[14px] font-medium text-[#5a42f5]">

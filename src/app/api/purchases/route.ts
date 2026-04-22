@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +14,18 @@ export async function POST(request: NextRequest) {
   const { eventId, ticketId, buyerName, buyerPhone, payMethod, amount } = body;
 
   // Verify ticket availability
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-  if (!ticket || ticket.soldQty >= ticket.totalQty) {
+  const { data: ticket, error: ticketError } = await supabase
+    .from("Ticket")
+    .select("*")
+    .eq("id", ticketId)
+    .single();
+
+  if (ticketError || !ticket) {
+    return NextResponse.json({ error: "Ticket not found" }, { status: 400 });
+  }
+
+  const row = ticket as Record<string, unknown>;
+  if ((row.soldQty as number) >= (row.totalQty as number)) {
     return NextResponse.json({ error: "Ticket sold out" }, { status: 400 });
   }
 
@@ -25,14 +35,19 @@ export async function POST(request: NextRequest) {
   let ticketNumber = generateTicketNumber();
   let attempts = 0;
   while (attempts < 10) {
-    const existing = await prisma.purchase.findUnique({ where: { ticketNumber } });
+    const { data: existing } = await supabase
+      .from("Purchase")
+      .select("id")
+      .eq("ticketNumber", ticketNumber)
+      .single();
     if (!existing) break;
     ticketNumber = generateTicketNumber();
     attempts++;
   }
 
-  const purchase = await prisma.purchase.create({
-    data: {
+  const { data: purchase, error: createError } = await supabase
+    .from("Purchase")
+    .insert({
       ticketNumber,
       eventId,
       ticketId,
@@ -41,8 +56,13 @@ export async function POST(request: NextRequest) {
       paidAmount: amount,
       paymentId,
       payMethod,
-    },
-  });
+    })
+    .select()
+    .single();
 
-  return NextResponse.json({ purchaseId: purchase.id, paymentId });
+  if (createError || !purchase) {
+    return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 });
+  }
+
+  return NextResponse.json({ purchaseId: (purchase as Record<string, unknown>).id, paymentId });
 }
