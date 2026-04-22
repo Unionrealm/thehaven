@@ -47,12 +47,12 @@ function remainingLabel(tickets: Event["tickets"]) {
     0
   );
   if (totalRemaining <= 0) return { label: "매진", tone: "soldout" as const };
-  if (totalRemaining <= 5) return { label: `잔여 ${totalRemaining}석`, tone: "warm" as const };
+  if (totalRemaining <= 5)
+    return { label: `잔여 ${totalRemaining}석`, tone: "warm" as const };
   return { label: `잔여 ${totalRemaining}석`, tone: "cool" as const };
 }
 
 function categoryGradient(category: string): string {
-  // Soft tinted gradients per category, used as poster fallback
   switch (category) {
     case "인디음악":
       return "linear-gradient(135deg, #ede9fc 0%, #c8c0fc 100%)";
@@ -77,17 +77,17 @@ export default function HomeFeedClient({ events }: { events: Event[] }) {
 
   return (
     <div>
-      {/* Category filter pills */}
-      <div className="bg-white border-b border-[#f0f0f0] px-5 py-3 overflow-x-auto">
-        <div className="flex gap-2 w-max">
+      {/* Category filter pills — wrapping rows, no scroll */}
+      <div className="px-5 pb-4">
+        <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setFilter(cat)}
-              className={`h-8 px-4 rounded-[20px] text-[13px] whitespace-nowrap transition-colors ${
+              className={`h-[34px] px-4 rounded-[17px] text-[13px] transition-colors ${
                 filter === cat
-                  ? "bg-[#111] text-white font-medium"
-                  : "bg-[#f5f5f6] text-[#555]"
+                  ? "bg-[#111] text-white font-semibold"
+                  : "bg-[#f5f5f6] text-[#555] font-medium"
               }`}
             >
               {cat}
@@ -97,9 +97,9 @@ export default function HomeFeedClient({ events }: { events: Event[] }) {
       </div>
 
       {/* Feed */}
-      <div className="px-5 py-5 flex flex-col gap-4">
+      <div className="px-5 pb-8 flex flex-col gap-4">
         {filtered.length === 0 && (
-          <div className="bg-white rounded-[16px] py-16 text-center">
+          <div className="rounded-[16px] py-16 text-center bg-[#f9f9fa]">
             <p className="text-[14px] text-[#aaaaaa]">
               아직 {filter} 이벤트가 없어요
             </p>
@@ -113,7 +113,7 @@ export default function HomeFeedClient({ events }: { events: Event[] }) {
             <Link
               key={event.id}
               href={`/events/${event.id}`}
-              className="block bg-white rounded-[16px] overflow-hidden border border-[#f0f0f0]"
+              className="block rounded-[16px] overflow-hidden shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)] border border-[#f0f0f0]"
             >
               {/* Poster */}
               <div
@@ -134,7 +134,7 @@ export default function HomeFeedClient({ events }: { events: Event[] }) {
               </div>
 
               {/* Info */}
-              <div className="px-4 py-4">
+              <div className="px-4 py-4 bg-white">
                 <h3 className="text-[16px] font-semibold text-[#111] tracking-[-0.4px] leading-[22px] line-clamp-2">
                   {event.title}
                 </h3>
@@ -173,8 +173,6 @@ export default function HomeFeedClient({ events }: { events: Event[] }) {
           );
         })}
       </div>
-
-      <div className="h-8" />
     </div>
   );
 }
