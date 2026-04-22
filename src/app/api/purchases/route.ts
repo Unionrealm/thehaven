@@ -13,36 +13,38 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { eventId, ticketId, buyerName, buyerPhone, payMethod, amount } = body;
 
-  // Verify ticket availability
+  if (!eventId || !ticketId || !buyerName || !buyerPhone || !payMethod || amount == null) {
+    return NextResponse.json({ error: "필수 항목이 누락됐어요." }, { status: 400 });
+  }
+
+  // Verify ticket exists and has availability
   const { data: ticket, error: ticketError } = await supabase
     .from("Ticket")
-    .select("*")
+    .select("id, soldQty, totalQty")
     .eq("id", ticketId)
     .single();
 
   if (ticketError || !ticket) {
-    return NextResponse.json({ error: "Ticket not found" }, { status: 400 });
+    return NextResponse.json({ error: "티켓을 찾을 수 없어요." }, { status: 400 });
   }
 
   const row = ticket as Record<string, unknown>;
   if ((row.soldQty as number) >= (row.totalQty as number)) {
-    return NextResponse.json({ error: "Ticket sold out" }, { status: 400 });
+    return NextResponse.json({ error: "매진된 티켓이에요." }, { status: 400 });
   }
 
   const paymentId = `haven_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-  // Generate unique ticket number
+  // Generate a unique ticket number
   let ticketNumber = generateTicketNumber();
-  let attempts = 0;
-  while (attempts < 10) {
+  for (let i = 0; i < 10; i++) {
     const { data: existing } = await supabase
       .from("Purchase")
       .select("id")
       .eq("ticketNumber", ticketNumber)
-      .single();
+      .maybeSingle();
     if (!existing) break;
     ticketNumber = generateTicketNumber();
-    attempts++;
   }
 
   const { data: purchase, error: createError } = await supabase
@@ -55,14 +57,19 @@ export async function POST(request: NextRequest) {
       buyerPhone,
       paidAmount: amount,
       paymentId,
-      payMethod,
+      payMethod: payMethod ?? "KAKAO_PAY",
+      checkedIn: false,
     })
-    .select()
+    .select("id, paymentId")
     .single();
 
   if (createError || !purchase) {
-    return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 });
+    return NextResponse.json(
+      { error: `구매 생성 실패: ${createError?.message ?? "unknown"}` },
+      { status: 500 }
+    );
   }
 
-  return NextResponse.json({ purchaseId: (purchase as Record<string, unknown>).id, paymentId });
+  const p = purchase as Record<string, unknown>;
+  return NextResponse.json({ purchaseId: p.id, paymentId: p.paymentId });
 }

@@ -20,8 +20,10 @@ export default async function TicketPage({ params }: PageProps) {
   if (error || !purchase) return notFound();
 
   const row = purchase as Record<string, unknown>;
-  const eventData = row.Event as Record<string, unknown>;
-  const ticketData = row.Ticket as Record<string, unknown>;
+  const eventData = (row.Event ?? {}) as Record<string, unknown>;
+  const ticketData = (row.Ticket ?? {}) as Record<string, unknown>;
+
+  if (!eventData.id || !ticketData.id) return notFound();
 
   const serialized = {
     id: row.id as string,
@@ -34,16 +36,16 @@ export default async function TicketPage({ params }: PageProps) {
     paymentId: row.paymentId as string,
     payMethod: row.payMethod as string,
     checkedIn: row.checkedIn as boolean,
-    checkedInAt: row.checkedInAt as string | undefined,
+    checkedInAt: (row.checkedInAt as string) ?? undefined,
     createdAt: row.createdAt as string,
     event: {
       id: eventData.id as string,
-      slug: eventData.slug as string,
+      slug: (eventData.slug as string) ?? "",
       title: eventData.title as string,
-      category: eventData.category as string,
+      category: (eventData.category as string) ?? "",
       date: eventData.date as string,
       location: eventData.location as string,
-      description: eventData.description as string,
+      description: (eventData.description as string) ?? "",
       tickets: [],
     },
     ticket: {
@@ -57,24 +59,11 @@ export default async function TicketPage({ params }: PageProps) {
 
   return (
     <MobileContainer>
-      {/* Violet success banner */}
-      <div className="bg-[#5a42f5] py-4 px-5">
-        <div className="h-11" />
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-[#5a42f5] text-[18px]" style={{ fontFamily: "'Palanquin', sans-serif" }}>
-            {/* invisible — just for spacing */}
-          </span>
-        </div>
-      </div>
-
       <AppBar showLogo />
-
-      {/* Success banner */}
-      <div className="bg-[#5a42f5] px-5 py-4 flex flex-col items-center">
+      <div className="bg-[#5a42f5] px-5 py-5 flex flex-col items-center">
         <p className="text-[16px] font-semibold text-white">결제가 완료됐어요 ✓</p>
         <p className="text-[13px] text-white/70 mt-0.5">티켓이 발행됐습니다</p>
       </div>
-
       <TicketClient purchase={serialized as Parameters<typeof TicketClient>[0]["purchase"]} />
     </MobileContainer>
   );

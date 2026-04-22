@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   const { data: purchase, error } = await supabase
     .from("Purchase")
-    .select("id, paidAmount")
+    .select("id, ticketId, paidAmount")
     .eq("id", purchaseId)
     .single();
 
@@ -21,11 +21,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ status: "not_found" }, { status: 404 });
   }
 
-  // For now, since Portone webhook updates the purchase,
-  // we check if paidAmount > 0 as a simple proxy.
-  // The real flow: webhook sets a "paid" flag or similar.
+  const row = purchase as Record<string, unknown>;
+  const paid = typeof row.paidAmount === "number" && (row.paidAmount as number) > 0;
+
   return NextResponse.json({
-    status: "paid",
-    ticketId: purchaseId,
+    status: paid ? "paid" : "pending",
+    ticketId: row.ticketId as string,
   });
 }

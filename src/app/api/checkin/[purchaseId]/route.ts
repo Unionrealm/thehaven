@@ -18,12 +18,22 @@ export async function PATCH(_request: NextRequest, { params }: RouteParams) {
       checkedInAt: new Date().toISOString(),
     })
     .eq("id", purchaseId)
-    .select()
+    .select("id, checkedIn, checkedInAt")
     .single();
 
-  if (error || !purchase) {
-    return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
+  if (error) {
+    // PGRST116 = no rows matched — treat as not found; others are server errors
+    const status = error.code === "PGRST116" ? 404 : 500;
+    return NextResponse.json(
+      { error: status === 404 ? "Purchase not found" : error.message },
+      { status }
+    );
   }
 
-  return NextResponse.json({ ok: true, checkedIn: (purchase as Record<string, unknown>).checkedIn });
+  const row = purchase as Record<string, unknown>;
+  return NextResponse.json({
+    ok: true,
+    checkedIn: row.checkedIn as boolean,
+    checkedInAt: row.checkedInAt as string,
+  });
 }

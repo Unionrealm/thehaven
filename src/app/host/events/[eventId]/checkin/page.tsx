@@ -20,31 +20,28 @@ export default async function CheckinPage({ params }: PageProps) {
   if (error || !event) return notFound();
 
   const row = event as Record<string, unknown>;
-  const tickets = row.Ticket as Record<string, unknown>[];
-  const purchases = row.Purchase as Record<string, unknown>[];
-
-  // Sort purchases by createdAt descending
-  purchases.sort((a, b) => {
-    const dateA = a.createdAt as string;
-    const dateB = b.createdAt as string;
-    return dateB.localeCompare(dateA);
-  });
+  const tickets = (row.Ticket ?? []) as Record<string, unknown>[];
+  const purchases = ((row.Purchase ?? []) as Record<string, unknown>[])
+    .slice()
+    .sort((a, b) =>
+      String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""))
+    );
 
   const totalQty = tickets.reduce(
-    (sum: number, t: Record<string, unknown>) => sum + (t.totalQty as number),
+    (sum, t) => sum + ((t.totalQty as number) || 0),
     0
   );
   const paidCount = purchases.length;
 
-  const buyers = purchases.map((p: Record<string, unknown>) => {
-    const ticket = p.Ticket as Record<string, unknown>;
+  const buyers = purchases.map((p) => {
+    const ticket = (p.Ticket ?? {}) as Record<string, unknown>;
     return {
       id: p.id as string,
-      ticketNumber: p.ticketNumber as string,
-      buyerName: p.buyerName as string,
-      ticketName: ticket.name as string,
-      createdAt: p.createdAt as string,
-      checkedIn: p.checkedIn as boolean,
+      ticketNumber: (p.ticketNumber as string) ?? "",
+      buyerName: (p.buyerName as string) ?? "",
+      ticketName: (ticket.name as string) ?? "티켓",
+      createdAt: (p.createdAt as string) ?? "",
+      checkedIn: (p.checkedIn as boolean) ?? false,
     };
   });
 

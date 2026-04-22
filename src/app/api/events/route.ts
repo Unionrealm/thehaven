@@ -120,7 +120,13 @@ export async function POST(request: NextRequest) {
         eventId,
         label: q,
       }));
-      await supabase.from("Question").insert(questionRows);
+      const { error: questionError } = await supabase
+        .from("Question")
+        .insert(questionRows);
+      if (questionError) {
+        // Non-fatal: event and tickets already created successfully
+        console.error("Question insert failed:", questionError.message);
+      }
     }
 
     return NextResponse.json({ eventId });

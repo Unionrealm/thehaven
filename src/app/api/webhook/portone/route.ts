@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   // Find purchase by paymentId
   const { data: purchase, error } = await supabase
     .from("Purchase")
-    .select("*, Ticket(*)")
+    .select("id, ticketId")
     .eq("paymentId", paymentId)
     .single();
 
@@ -24,20 +24,31 @@ export async function POST(request: NextRequest) {
   }
 
   const row = purchase as Record<string, unknown>;
+  const ticketId = row.ticketId as string;
 
-  // TODO: Verify payment amount with Portone API using PORTONE_API_SECRET
+  // Read current soldQty fresh from DB (not from join cache) before incrementing
+  const { data: ticket, error: ticketReadError } = await supabase
+    .from("Ticket")
+    .select("soldQty")
+    .eq("id", ticketId)
+    .single();
 
-  // Update ticket sold count: read current value then increment
-  const ticketData = row.Ticket as Record<string, unknown>;
-  const currentSoldQty = ticketData.soldQty as number;
+  if (ticketReadError || !ticket) {
+    return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+  }
+
+  const currentSoldQty = (ticket as Record<string, unknown>).soldQty as number;
 
   const { error: updateError } = await supabase
     .from("Ticket")
     .update({ soldQty: currentSoldQty + 1 })
-    .eq("id", row.ticketId as string);
+    .eq("id", ticketId);
 
   if (updateError) {
-    return NextResponse.json({ error: "Failed to update ticket" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update ticket count" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ ok: true, purchaseId: row.id });
